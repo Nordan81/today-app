@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Idag</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #f7f5f3;
+    color: #2d3748;
+    min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg, #4a6741 0%, #6b8f71 100%);
+    color: white;
+    padding: 32px 24px 24px;
+  }
+  .header h1 { font-size: 1.8rem; font-weight: 700; }
+  .header .date { font-size: 1rem; opacity: 0.85; margin-top: 4px; text-transform: capitalize; }
+  .progress { margin-top: 16px; background: rgba(255,255,255,0.2); border-radius: 8px; height: 8px; overflow: hidden; }
+  .progress-bar { height: 100%; background: white; border-radius: 8px; transition: width 0.3s ease; }
+  .progress-text { font-size: 0.85rem; opacity: 0.8; margin-top: 6px; }
+  .tasks { padding: 16px; }
+  .task {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: opacity 0.3s ease;
+  }
+  .task.done { opacity: 0.5; }
+  .task.done .task-text { text-decoration: line-through; }
+  .check {
+    width: 32px; height: 32px; min-width: 32px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e0;
+    background: white;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: white;
+    margin-top: 2px;
+    transition: all 0.2s ease;
+  }
+  .check.checked { background: #4a6741; border-color: #4a6741; }
+  .task-content { flex: 1; }
+  .task-text { font-size: 1.1rem; line-height: 1.5; }
+  .priority-dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; margin-right: 10px; vertical-align: middle;
+  }
+  .category {
+    display: inline-block; font-size: 0.75rem; color: #94a3b8;
+    background: #f1f5f9; padding: 2px 8px; border-radius: 6px; margin-top: 6px;
+  }
+  .empty { text-align: center; padding: 60px 24px; color: #94a3b8; font-size: 1.1rem; }
+  .loading { text-align: center; padding: 60px 24px; color: #94a3b8; }
+  .refresh {
+    display: block; margin: 20px auto; padding: 14px 28px;
+    background: #4a6741; color: white; border: none;
+    border-radius: 10px; font-size: 1rem; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Idag</h1>
+    <div class="date" id="date-display"></div>
+    <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="progress-text" id="progress-text"></div>
+  </div>
+  <div class="tasks" id="tasks"></div>
+  <button class="refresh" onclick="loadTasks()">Uppdatera</button>
+
+<script>
+const SUPABASE_URL = "https://toxrleabrqthxoxzwcqp.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRveHJsZWFicnF0aHhveHp3Y3FwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTM4MDk3NywiZXhwIjoyMDkwOTU2OTc3fQ.2Wg4XbC1y9R8stGPFW1EvlIHjs2NWh8jipt4P20Ba6c";
+
+const weekdays = ["sondag","mandag","tisdag","onsdag","torsdag","fredag","lordag"];
+const months = ["januari","februari","mars","april","maj","juni","juli","augusti","september","oktober","november","december"];
+
+function formatDate() {
+  const d = new Date();
+  return weekdays[d.getDay()] + " " + d.getDate() + " " + months[d.getMonth()];
+}
+
+async function loadTasks() {
+  document.getElementById("date-display").textContent = formatDate();
+  document.getElementById("tasks").innerHTML = '<div class="loading">Laddar...</div>';
+
+  const today = new Date().toISOString().split("T")[0];
+  const res = await fetch(
+    SUPABASE_URL + "/rest/v1/inbox?scheduled_date=eq." + today + "&status=in.(triaged,done)&order=priority.asc",
+    { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
+  );
+  const items = await res.json();
+
+  if (!items || items.length === 0) {
+    document.getElementById("tasks").innerHTML = '<div class="empty">Ingen plan idag. Njut!</div>';
+    document.getElementById("progress-bar").style.width = "0%";
+    document.getElementById("progress-text").textContent = "";
+    return;
+  }
+
+  const done = items.filter(i => i.status === "done").length;
+  const total = items.length;
+  document.getElementById("progress-bar").style.width = Math.round((done/total)*100) + "%";
+  document.getElementById("progress-text").textContent = done + " av " + total + " klart";
+
+  document.getElementById("tasks").innerHTML = items.map(item => {
+    const isDone = item.status === "done";
+    const color = item.priority === "urgent" ? "#dc2626" : item.priority === "today" ? "#4a6741" : "#94a3b8";
+    return '<div class="task ' + (isDone ? "done" : "") + '" id="task-' + item.id + '">' +
+      '<button class="check ' + (isDone ? "checked" : "") + '" onclick="toggle(\'' + item.id + '\', this)">' +
+      (isDone ? "&#10003;" : "") + '</button>' +
+      '<div class="task-content">' +
+      '<span class="priority-dot" style="background:' + color + '"></span>' +
+      '<span class="task-text">' + item.content + '</span>' +
+      (item.category ? '<br><span class="category">' + item.category + '</span>' : '') +
+      '</div></div>';
+  }).join("");
+}
+
+async function toggle(id, btn) {
+  btn.classList.add("checked");
+  btn.innerHTML = "&#10003;";
+  btn.closest(".task").classList.add("done");
+  btn.closest(".task").querySelector(".task-text").style.textDecoration = "line-through";
+
+  await fetch(SUPABASE_URL + "/rest/v1/inbox?id=eq." + id, {
+    method: "PATCH",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ status: "done" })
+  });
+
+  setTimeout(loadTasks, 500);
+}
+
+loadTasks();
+</script>
+</body>
+</html>
