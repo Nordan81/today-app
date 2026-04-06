@@ -25,7 +25,52 @@
   .progress { margin-top: 16px; background: rgba(255,255,255,0.2); border-radius: 8px; height: 8px; overflow: hidden; }
   .progress-bar { height: 100%; background: white; border-radius: 8px; transition: width 0.3s ease; }
   .progress-text { font-size: 0.85rem; opacity: 0.8; margin-top: 6px; }
-  .tasks { padding: 16px; }
+
+  .tabs {
+    display: flex;
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    overflow-x: auto;
+  }
+  .tab {
+    flex: 1;
+    padding: 14px 10px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #94a3b8;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    font-family: 'Inter', sans-serif;
+    background: none;
+    border-top: none; border-left: none; border-right: none;
+    white-space: nowrap;
+  }
+  .tab.active {
+    color: #4a6741;
+    border-bottom-color: #4a6741;
+  }
+  .tab .badge {
+    display: inline-block;
+    background: #e2e8f0;
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .tab.active .badge {
+    background: #4a6741;
+    color: white;
+  }
+
+  .tab-content { display: none; padding: 16px; }
+  .tab-content.active { display: block; }
+
+  .tasks { }
   .task {
     background: white;
     border-radius: 12px;
@@ -63,6 +108,76 @@
   }
   .empty { text-align: center; padding: 60px 24px; color: #94a3b8; font-size: 1.1rem; }
   .loading { text-align: center; padding: 60px 24px; color: #94a3b8; }
+
+  .log-entry {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    line-height: 1.7;
+    font-size: 1rem;
+    color: #4a5568;
+  }
+  .log-time {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+  .log-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6b8f71;
+    background: #f0f7f0;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+
+  .inbox-item {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .inbox-item .inbox-time {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+  .inbox-item .inbox-text {
+    font-size: 1.05rem;
+    line-height: 1.5;
+    color: #2d3748;
+  }
+  .inbox-source {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #8b5cf6;
+    background: #f5f3ff;
+    padding: 1px 6px;
+    border-radius: 6px;
+    margin-left: 8px;
+  }
+
+  .shop-item {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: opacity 0.3s ease;
+  }
+  .shop-item.done { opacity: 0.5; }
+  .shop-item.done .shop-text { text-decoration: line-through; }
+  .shop-text { font-size: 1.1rem; flex: 1; }
+
   .refresh {
     display: block; margin: 20px auto; padding: 14px 28px;
     background: #4a6741; color: white; border: none;
@@ -78,31 +193,75 @@
     <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
     <div class="progress-text" id="progress-text"></div>
   </div>
-  <div class="tasks" id="tasks"></div>
-  <button class="refresh" onclick="loadTasks()">Uppdatera</button>
+
+  <div class="tabs" id="tab-bar"></div>
+
+  <div class="tab-content active" id="tab-tasks">
+    <div class="tasks" id="tasks"></div>
+  </div>
+  <div class="tab-content" id="tab-inbox">
+    <div id="inbox-items"></div>
+  </div>
+  <div class="tab-content" id="tab-shopping">
+    <div id="shopping-items"></div>
+  </div>
+  <div class="tab-content" id="tab-log">
+    <div id="log-entries"></div>
+  </div>
+
+  <button class="refresh" onclick="loadAll()">Uppdatera</button>
 
 <script>
 const SUPABASE_URL = "https://toxrleabrqthxoxzwcqp.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRveHJsZWFicnF0aHhveHp3Y3FwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTM4MDk3NywiZXhwIjoyMDkwOTU2OTc3fQ.2Wg4XbC1y9R8stGPFW1EvlIHjs2NWh8jipt4P20Ba6c";
 
-const weekdays = ["s\u00f6ndag","m\u00e5ndag","tisdag","onsdag","torsdag","fredag","l\u00f6rdag"];
+const weekdays = ["söndag","måndag","tisdag","onsdag","torsdag","fredag","lördag"];
 const months = ["januari","februari","mars","april","maj","juni","juli","augusti","september","oktober","november","december"];
+
+let activeTab = 'tasks';
+let counts = { tasks: 0, inbox: 0, shopping: 0, log: 0 };
 
 function formatDate() {
   const d = new Date();
   return weekdays[d.getDay()] + " " + d.getDate() + " " + months[d.getMonth()];
 }
 
-async function loadTasks() {
-  document.getElementById("date-display").textContent = formatDate();
-  document.getElementById("tasks").innerHTML = '<div class="loading">Laddar...</div>';
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  renderTabs();
+}
 
+function renderTabs() {
+  const tabs = [
+    { id: 'tasks', label: 'Att göra', count: counts.tasks },
+    { id: 'inbox', label: 'Inkorg', count: counts.inbox },
+    { id: 'shopping', label: 'Handla', count: counts.shopping },
+    { id: 'log', label: 'Sorterat', count: counts.log },
+  ];
+  document.getElementById('tab-bar').innerHTML = tabs.map(t =>
+    '<button class="tab' + (activeTab === t.id ? ' active' : '') + '" onclick="switchTab(\'' + t.id + '\')">' +
+    t.label + (t.count > 0 ? ' <span class="badge">' + t.count + '</span>' : '') +
+    '</button>'
+  ).join('');
+}
+
+async function loadAll() {
+  document.getElementById("date-display").textContent = formatDate();
+  await Promise.all([loadTasks(), loadInbox(), loadShopping(), loadLog()]);
+  renderTabs();
+}
+
+async function loadTasks() {
+  document.getElementById("tasks").innerHTML = '<div class="loading">Laddar...</div>';
   const today = new Date().toISOString().split("T")[0];
   const res = await fetch(
-    SUPABASE_URL + "/rest/v1/inbox?scheduled_date=eq." + today + "&status=in.(triaged,done)&order=priority.asc",
+    SUPABASE_URL + "/rest/v1/inbox?scheduled_date=eq." + today + "&status=in.(triaged,done)&source=neq.inbox-mapp&category=neq.shopping&order=priority.asc",
     { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
   );
   const items = await res.json();
+  counts.tasks = items ? items.filter(i => i.status !== "done").length : 0;
 
   if (!items || items.length === 0) {
     document.getElementById("tasks").innerHTML = '<div class="empty">Ingen plan idag. Njut!</div>';
@@ -119,7 +278,7 @@ async function loadTasks() {
   document.getElementById("tasks").innerHTML = items.map(item => {
     const isDone = item.status === "done";
     const color = item.priority === "urgent" ? "#dc2626" : item.priority === "today" ? "#4a6741" : "#94a3b8";
-    return '<div class="task ' + (isDone ? "done" : "") + '" id="task-' + item.id + '">' +
+    return '<div class="task ' + (isDone ? "done" : "") + '">' +
       '<button class="check ' + (isDone ? "checked" : "") + '" onclick="toggle(\'' + item.id + '\', this)">' +
       (isDone ? "&#10003;" : "") + '</button>' +
       '<div class="task-content">' +
@@ -130,26 +289,104 @@ async function loadTasks() {
   }).join("");
 }
 
+async function loadInbox() {
+  document.getElementById("inbox-items").innerHTML = '<div class="loading">Laddar...</div>';
+  const res = await fetch(
+    SUPABASE_URL + "/rest/v1/inbox?source=eq.voice&status=eq.new&order=created_at.desc",
+    { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
+  );
+  const items = await res.json();
+  counts.inbox = items ? items.length : 0;
+
+  if (!items || items.length === 0) {
+    document.getElementById("inbox-items").innerHTML = '<div class="empty">Inga ohanterade anteckningar.</div>';
+    return;
+  }
+
+  document.getElementById("inbox-items").innerHTML = items.map(item => {
+    const time = new Date(item.created_at).toLocaleString("sv-SE", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return '<div class="inbox-item">' +
+      '<div class="inbox-time">' + time + '<span class="inbox-source">röst</span></div>' +
+      '<div class="inbox-text">' + item.content + '</div>' +
+      '</div>';
+  }).join("");
+}
+
+async function loadShopping() {
+  document.getElementById("shopping-items").innerHTML = '<div class="loading">Laddar...</div>';
+  const res = await fetch(
+    SUPABASE_URL + "/rest/v1/inbox?category=eq.shopping&status=in.(triaged,new)&order=created_at.desc",
+    { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
+  );
+  const items = await res.json();
+  counts.shopping = items ? items.length : 0;
+
+  if (!items || items.length === 0) {
+    document.getElementById("shopping-items").innerHTML = '<div class="empty">Shoppinglistan är tom.</div>';
+    return;
+  }
+
+  document.getElementById("shopping-items").innerHTML = items.map(item => {
+    return '<div class="shop-item">' +
+      '<button class="check" onclick="shopDone(\'' + item.id + '\', this)"></button>' +
+      '<span class="shop-text">' + item.content + '</span>' +
+      '</div>';
+  }).join("");
+}
+
+async function loadLog() {
+  document.getElementById("log-entries").innerHTML = '<div class="loading">Laddar...</div>';
+  const today = new Date().toISOString().split("T")[0];
+  const res = await fetch(
+    SUPABASE_URL + "/rest/v1/inbox?source=eq.inbox-mapp&created_at=gte." + today + "T00:00:00&order=created_at.asc",
+    { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
+  );
+  const items = await res.json();
+  counts.log = items ? items.length : 0;
+
+  if (!items || items.length === 0) {
+    document.getElementById("log-entries").innerHTML = '<div class="empty">Inget sorterat idag.</div>';
+    return;
+  }
+
+  document.getElementById("log-entries").innerHTML = items.map(item => {
+    const time = new Date(item.created_at).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+    const cat = item.category || "";
+    return '<div class="log-entry">' +
+      '<div class="log-time">' + time + '</div>' +
+      (cat ? '<span class="log-badge">' + cat + '</span>' : '') +
+      '<div>' + item.content + '</div>' +
+      '</div>';
+  }).join("");
+}
+
 async function toggle(id, btn) {
   btn.classList.add("checked");
   btn.innerHTML = "&#10003;";
   btn.closest(".task").classList.add("done");
   btn.closest(".task").querySelector(".task-text").style.textDecoration = "line-through";
-
   await fetch(SUPABASE_URL + "/rest/v1/inbox?id=eq." + id, {
     method: "PATCH",
-    headers: {
-      "apikey": SUPABASE_KEY,
-      "Authorization": "Bearer " + SUPABASE_KEY,
-      "Content-Type": "application/json"
-    },
+    headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({ status: "done" })
   });
-
-  setTimeout(loadTasks, 500);
+  setTimeout(loadAll, 500);
 }
 
-loadTasks();
+async function shopDone(id, btn) {
+  btn.classList.add("checked");
+  btn.innerHTML = "&#10003;";
+  btn.closest(".shop-item").classList.add("done");
+  btn.closest(".shop-item").querySelector(".shop-text").style.textDecoration = "line-through";
+  await fetch(SUPABASE_URL + "/rest/v1/inbox?id=eq." + id, {
+    method: "PATCH",
+    headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "done" })
+  });
+  setTimeout(loadAll, 500);
+}
+
+loadAll();
 </script>
 </body>
 </html>
