@@ -336,27 +336,52 @@ async function loadShopping() {
 
 async function loadLog() {
   document.getElementById("log-entries").innerHTML = '<div class="loading">Laddar...</div>';
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const weekAgo = new Date(now);
+  weekAgo.setDate(weekAgo.getDate() - 7);
   const res = await fetch(
-    SUPABASE_URL + "/rest/v1/inbox?source=eq.inbox-mapp&created_at=gte." + today + "T00:00:00&order=created_at.asc",
+    SUPABASE_URL + "/rest/v1/inbox?source=eq.inbox-mapp&created_at=gte." + weekAgo.toISOString().split("T")[0] + "T00:00:00&order=created_at.desc",
     { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
   );
   const items = await res.json();
   counts.log = items ? items.length : 0;
 
   if (!items || items.length === 0) {
-    document.getElementById("log-entries").innerHTML = '<div class="empty">Inget sorterat idag.</div>';
+    document.getElementById("log-entries").innerHTML = '<div class="empty">Inget sorterat senaste 7 dagarna.</div>';
     return;
   }
 
-  document.getElementById("log-entries").innerHTML = items.map(item => {
-    const time = new Date(item.created_at).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
-    const cat = item.category || "";
-    return '<div class="log-entry">' +
-      '<div class="log-time">' + time + '</div>' +
-      (cat ? '<span class="log-badge">' + cat + '</span>' : '') +
-      '<div>' + item.content + '</div>' +
-      '</div>';
+  // Gruppera per dag
+  const today = now.toISOString().split("T")[0];
+  const groups = {};
+  items.forEach(item => {
+    const day = item.created_at.split("T")[0];
+    if (!groups[day]) groups[day] = [];
+    groups[day].push(item);
+  });
+
+  const dayNames = ["söndag","måndag","tisdag","onsdag","torsdag","fredag","lördag"];
+  document.getElementById("log-entries").innerHTML = Object.keys(groups).sort().reverse().map(day => {
+    const d = new Date(day + "T12:00:00");
+    const isToday = day === today;
+    const label = isToday ? "Idag" : dayNames[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth()+1);
+    const entries = groups[day];
+
+    return '<details' + (isToday ? ' open' : '') + '>' +
+      '<summary style="cursor:pointer;font-weight:600;font-size:1rem;color:#4a6741;padding:12px 0 6px;list-style:none;display:flex;align-items:center;gap:8px">' +
+      '<span style="font-size:0.8rem;transition:transform 0.2s">&#9654;</span> ' +
+      label + ' <span style="font-weight:400;font-size:0.85rem;color:#94a3b8">(' + entries.length + ')</span>' +
+      '</summary>' +
+      entries.map(item => {
+        const time = new Date(item.created_at).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+        const cat = item.category || "";
+        return '<div class="log-entry">' +
+          '<div class="log-time">' + time + '</div>' +
+          (cat ? '<span class="log-badge">' + cat + '</span>' : '') +
+          '<div>' + item.content + '</div>' +
+          '</div>';
+      }).join("") +
+      '</details>';
   }).join("");
 }
 
