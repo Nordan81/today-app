@@ -205,6 +205,12 @@
   <div class="tab-content" id="tab-shopping">
     <div id="shopping-items"></div>
   </div>
+  <div class="tab-content" id="tab-avfard">
+    <div id="avfard-items"></div>
+  </div>
+  <div class="tab-content" id="tab-praktik">
+    <div id="praktik-items"></div>
+  </div>
   <div class="tab-content" id="tab-log">
     <div id="log-entries"></div>
   </div>
@@ -219,7 +225,7 @@ const weekdays = ["söndag","måndag","tisdag","onsdag","torsdag","fredag","lör
 const months = ["januari","februari","mars","april","maj","juni","juli","augusti","september","oktober","november","december"];
 
 let activeTab = 'tasks';
-let counts = { tasks: 0, inbox: 0, shopping: 0, log: 0 };
+let counts = { tasks: 0, inbox: 0, shopping: 0, avfard: 0, praktik: 0, log: 0 };
 
 function formatDate() {
   const d = new Date();
@@ -238,6 +244,8 @@ function renderTabs() {
     { id: 'tasks', label: 'Att göra', count: counts.tasks },
     { id: 'inbox', label: 'Inkorg', count: counts.inbox },
     { id: 'shopping', label: 'Handla', count: counts.shopping },
+    { id: 'avfard', label: 'Avfärd', count: counts.avfard },
+    { id: 'praktik', label: 'Praktik', count: counts.praktik },
     { id: 'log', label: 'Sorterat', count: counts.log },
   ];
   document.getElementById('tab-bar').innerHTML = tabs.map(t =>
@@ -249,7 +257,7 @@ function renderTabs() {
 
 async function loadAll() {
   document.getElementById("date-display").textContent = formatDate();
-  await Promise.all([loadTasks(), loadInbox(), loadShopping(), loadLog()]);
+  await Promise.all([loadTasks(), loadInbox(), loadShopping(), loadChecklist('avfard', 'avfärd'), loadChecklist('praktik', 'praktik'), loadLog()]);
   renderTabs();
 }
 
@@ -257,7 +265,7 @@ async function loadTasks() {
   document.getElementById("tasks").innerHTML = '<div class="loading">Laddar...</div>';
   const today = new Date().toISOString().split("T")[0];
   const res = await fetch(
-    SUPABASE_URL + "/rest/v1/inbox?scheduled_date=eq." + today + "&status=in.(triaged,done)&source=neq.inbox-mapp&category=neq.shopping&order=priority.asc",
+    SUPABASE_URL + "/rest/v1/inbox?scheduled_date=eq." + today + "&status=in.(triaged,done)&source=neq.inbox-mapp&category=not.in.(shopping,avfärd,praktik)&order=priority.asc",
     { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
   );
   const items = await res.json();
@@ -329,6 +337,30 @@ async function loadShopping() {
   document.getElementById("shopping-items").innerHTML = items.map(item => {
     return '<div class="shop-item">' +
       '<button class="check" onclick="shopDone(\'' + item.id + '\', this)"></button>' +
+      '<span class="shop-text">' + item.content + '</span>' +
+      '</div>';
+  }).join("");
+}
+
+async function loadChecklist(id, category) {
+  document.getElementById(id + "-items").innerHTML = '<div class="loading">Laddar...</div>';
+  const res = await fetch(
+    SUPABASE_URL + "/rest/v1/inbox?category=eq." + encodeURIComponent(category) + "&status=in.(triaged,new,done)&order=created_at.desc",
+    { headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY } }
+  );
+  const items = await res.json();
+  counts[id] = items ? items.filter(i => i.status !== "done").length : 0;
+
+  if (!items || items.length === 0) {
+    document.getElementById(id + "-items").innerHTML = '<div class="empty">Listan är tom.</div>';
+    return;
+  }
+
+  document.getElementById(id + "-items").innerHTML = items.map(item => {
+    const isDone = item.status === "done";
+    return '<div class="shop-item' + (isDone ? " done" : "") + '">' +
+      '<button class="check' + (isDone ? " checked" : "") + '" onclick="shopDone(\'' + item.id + '\', this)">' +
+      (isDone ? "&#10003;" : "") + '</button>' +
       '<span class="shop-text">' + item.content + '</span>' +
       '</div>';
   }).join("");
