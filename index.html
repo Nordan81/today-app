@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Idag</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #f7f5f3;
+    color: #2d3748;
+    min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg, #4a6741 0%, #6b8f71 100%);
+    color: white;
+    padding: 32px 24px 24px;
+  }
+  .header h1 { font-size: 1.8rem; font-weight: 700; }
+  .header .date { font-size: 1rem; opacity: 0.85; margin-top: 4px; text-transform: capitalize; }
+  .progress { margin-top: 16px; background: rgba(255,255,255,0.2); border-radius: 8px; height: 8px; overflow: hidden; }
+  .progress-bar { height: 100%; background: white; border-radius: 8px; transition: width 0.3s ease; }
+  .progress-text { font-size: 0.85rem; opacity: 0.8; margin-top: 6px; }
+
+  .tabs {
+    display: flex;
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    overflow-x: auto;
+  }
+  .tab {
+    flex: 1;
+    padding: 14px 10px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #94a3b8;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    font-family: 'Inter', sans-serif;
+    background: none;
+    border-top: none; border-left: none; border-right: none;
+    white-space: nowrap;
+  }
+  .tab.active {
+    color: #4a6741;
+    border-bottom-color: #4a6741;
+  }
+  .tab .badge {
+    display: inline-block;
+    background: #e2e8f0;
+    color: #64748b;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .tab.active .badge {
+    background: #4a6741;
+    color: white;
+  }
+
+  .tab-content { display: none; padding: 16px; }
+  .tab-content.active { display: block; }
+
+  .tasks { }
+  .task {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: opacity 0.3s ease;
+  }
+  .task.done { opacity: 0.5; }
+  .task.done .task-text { text-decoration: line-through; }
+  .check {
+    width: 32px; height: 32px; min-width: 32px;
+    border-radius: 50%;
+    border: 2px solid #cbd5e0;
+    background: white;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: white;
+    margin-top: 2px;
+    transition: all 0.2s ease;
+  }
+  .check.checked { background: #4a6741; border-color: #4a6741; }
+  .task-content { flex: 1; }
+  .task-text { font-size: 1.1rem; line-height: 1.5; }
+  .priority-dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; margin-right: 10px; vertical-align: middle;
+  }
+  .category {
+    display: inline-block; font-size: 0.75rem; color: #94a3b8;
+    background: #f1f5f9; padding: 2px 8px; border-radius: 6px; margin-top: 6px;
+  }
+  .empty { text-align: center; padding: 60px 24px; color: #94a3b8; font-size: 1.1rem; }
+  .loading { text-align: center; padding: 60px 24px; color: #94a3b8; }
+
+  .log-entry {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    line-height: 1.7;
+    font-size: 1rem;
+    color: #4a5568;
+  }
+  .log-time {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 6px;
+  }
+  .log-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6b8f71;
+    background: #f0f7f0;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+
+  .inbox-item {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .inbox-item .inbox-time {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+  .inbox-item .inbox-text {
+    font-size: 1.05rem;
+    line-height: 1.5;
+    color: #2d3748;
+  }
+  .inbox-source {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #8b5cf6;
+    background: #f5f3ff;
+    padding: 1px 6px;
+    border-radius: 6px;
+    margin-left: 8px;
+  }
+
+  .shop-item {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: opacity 0.3s ease;
+  }
+  .shop-item.done { opacity: 0.5; }
+  .shop-item.done .shop-text { text-decoration: line-through; }
+  .shop-text { font-size: 1.1rem; flex: 1; }
+
+  .refresh {
+    display: block; margin: 20px auto; padding: 14px 28px;
+    background: #4a6741; color: white; border: none;
+    border-radius: 10px; font-size: 1rem; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Idag</h1>
+    <div class="date" id="date-display"></div>
+    <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="progress-text" id="progress-text"></div>
+  </div>
+
+  <div class="tabs" id="tab-bar"></div>
+
+  <div class="tab-content active" id="tab-tasks">
+    <div class="tasks" id="tasks"></div>
+  </div>
+  <div class="tab-content" id="tab-inbox">
+    <div id="inbox-items"></div>
+  </div>
+  <div class="tab-content" id="tab-shopping">
+    <div id="shopping-items"></div>
+  </div>
+  <div class="tab-content" id="tab-avfard">
+    <div id="avfard-items"></div>
+  </div>
+  <div class="tab-content" id="tab-praktik">
+    <div id="praktik-items"></div>
+  </div>
+  <div class="tab-content" id="tab-log">
+    <div id="log-entries"></div>
+  </div>
+
+  <button class="refresh" onclick="loadAll()">Uppdatera</button>
+
+<script>
+// Nyckelfri: hämtar all data från Edge Functionen 'today' (nyckeln stannar server-side).
+const FN = "https://toxrleabrqthxoxzwcqp.supabase.co/functions/v1/today";
+
+const weekdays = ["söndag","måndag","tisdag","onsdag","torsdag","fredag","lördag"];
+const months = ["januari","februari","mars","april","maj","juni","juli","augusti","september","oktober","november","december"];
+
+let activeTab = 'tasks';
+let counts = { tasks: 0, inbox: 0, shopping: 0, avfard: 0, praktik: 0, log: 0 };
+
+function formatDate() {
+  const d = new Date();
+  return weekdays[d.getDay()] + " " + d.getDate() + " " + months[d.getMonth()];
+}
+function esc(t) { const e = document.createElement("div"); e.textContent = (t == null ? "" : String(t)); return e.innerHTML; }
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  renderTabs();
+}
+
+function renderTabs() {
+  const tabs = [
+    { id: 'tasks', label: 'Att göra', count: counts.tasks },
+    { id: 'inbox', label: 'Inkorg', count: counts.inbox },
+    { id: 'shopping', label: 'Handla', count: counts.shopping },
+    { id: 'avfard', label: 'Avfärd', count: counts.avfard },
+    { id: 'praktik', label: 'Praktik', count: counts.praktik },
+    { id: 'log', label: 'Sorterat', count: counts.log },
+  ];
+  document.getElementById('tab-bar').innerHTML = tabs.map(t =>
+    '<button class="tab' + (activeTab === t.id ? ' active' : '') + '" onclick="switchTab(\'' + t.id + '\')">' +
+    t.label + (t.count > 0 ? ' <span class="badge">' + t.count + '</span>' : '') +
+    '</button>'
+  ).join('');
+}
+
+async function loadAll() {
+  document.getElementById("date-display").textContent = formatDate();
+  let data;
+  try {
+    data = await fetch(FN).then(r => r.json());
+  } catch (e) {
+    document.getElementById("tasks").innerHTML = '<div class="empty">Kunde inte ladda. Tryck Uppdatera.</div>';
+    return;
+  }
+  renderTasks(data.tasks || []);
+  renderInbox(data.inbox || []);
+  renderShopping(data.shopping || []);
+  renderChecklist('avfard', data.avfard || []);
+  renderChecklist('praktik', data.praktik || []);
+  renderLog(data.log || []);
+  renderTabs();
+}
+
+function renderTasks(items) {
+  counts.tasks = items.filter(i => i.status !== "done").length;
+  if (!items.length) {
+    document.getElementById("tasks").innerHTML = '<div class="empty">Ingen plan idag. Njut!</div>';
+    document.getElementById("progress-bar").style.width = "0%";
+    document.getElementById("progress-text").textContent = "";
+    return;
+  }
+  const done = items.filter(i => i.status === "done").length;
+  const total = items.length;
+  document.getElementById("progress-bar").style.width = Math.round((done/total)*100) + "%";
+  document.getElementById("progress-text").textContent = done + " av " + total + " klart";
+  document.getElementById("tasks").innerHTML = items.map(item => {
+    const isDone = item.status === "done";
+    const color = item.priority === "urgent" ? "#dc2626" : item.priority === "today" ? "#4a6741" : "#94a3b8";
+    return '<div class="task ' + (isDone ? "done" : "") + '">' +
+      '<button class="check ' + (isDone ? "checked" : "") + '" onclick="toggle(\'' + esc(item.id) + '\', this)">' +
+      (isDone ? "&#10003;" : "") + '</button>' +
+      '<div class="task-content">' +
+      '<span class="priority-dot" style="background:' + color + '"></span>' +
+      '<span class="task-text">' + esc(item.content) + '</span>' +
+      (item.category ? '<br><span class="category">' + esc(item.category) + '</span>' : '') +
+      '</div></div>';
+  }).join("");
+}
+
+function renderInbox(items) {
+  counts.inbox = items.length;
+  if (!items.length) {
+    document.getElementById("inbox-items").innerHTML = '<div class="empty">Inga ohanterade anteckningar.</div>';
+    return;
+  }
+  document.getElementById("inbox-items").innerHTML = items.map(item => {
+    const time = new Date(item.created_at).toLocaleString("sv-SE", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return '<div class="inbox-item">' +
+      '<div class="inbox-time">' + esc(time) + '<span class="inbox-source">röst</span></div>' +
+      '<div class="inbox-text">' + esc(item.content) + '</div>' +
+      '</div>';
+  }).join("");
+}
+
+function renderShopping(items) {
+  counts.shopping = items.length;
+  if (!items.length) {
+    document.getElementById("shopping-items").innerHTML = '<div class="empty">Shoppinglistan är tom.</div>';
+    return;
+  }
+  document.getElementById("shopping-items").innerHTML = items.map(item =>
+    '<div class="shop-item">' +
+    '<button class="check" onclick="shopDone(\'' + esc(item.id) + '\', this)"></button>' +
+    '<span class="shop-text">' + esc(item.content) + '</span>' +
+    '</div>'
+  ).join("");
+}
+
+function renderChecklist(id, items) {
+  counts[id] = items.filter(i => i.status !== "done").length;
+  if (!items.length) {
+    document.getElementById(id + "-items").innerHTML = '<div class="empty">Listan är tom.</div>';
+    return;
+  }
+  document.getElementById(id + "-items").innerHTML = items.map(item => {
+    const isDone = item.status === "done";
+    return '<div class="shop-item' + (isDone ? " done" : "") + '">' +
+      '<button class="check' + (isDone ? " checked" : "") + '" onclick="shopDone(\'' + esc(item.id) + '\', this)">' +
+      (isDone ? "&#10003;" : "") + '</button>' +
+      '<span class="shop-text">' + esc(item.content) + '</span>' +
+      '</div>';
+  }).join("");
+}
+
+function renderLog(items) {
+  counts.log = items.length;
+  if (!items.length) {
+    document.getElementById("log-entries").innerHTML = '<div class="empty">Inget sorterat senaste 7 dagarna.</div>';
+    return;
+  }
+  const today = new Date().toISOString().split("T")[0];
+  const groups = {};
+  items.forEach(item => {
+    const day = item.created_at.split("T")[0];
+    if (!groups[day]) groups[day] = [];
+    groups[day].push(item);
+  });
+  document.getElementById("log-entries").innerHTML = Object.keys(groups).sort().reverse().map(day => {
+    const d = new Date(day + "T12:00:00");
+    const isToday = day === today;
+    const label = isToday ? "Idag" : weekdays[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth()+1);
+    const entries = groups[day];
+    return '<details' + (isToday ? ' open' : '') + '>' +
+      '<summary style="cursor:pointer;font-weight:600;font-size:1rem;color:#4a6741;padding:12px 0 6px;list-style:none;display:flex;align-items:center;gap:8px">' +
+      '<span style="font-size:0.8rem;transition:transform 0.2s">&#9654;</span> ' +
+      label + ' <span style="font-weight:400;font-size:0.85rem;color:#94a3b8">(' + entries.length + ')</span>' +
+      '</summary>' +
+      entries.map(item => {
+        const time = new Date(item.created_at).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+        const cat = item.category || "";
+        return '<div class="log-entry">' +
+          '<div class="log-time">' + esc(time) + '</div>' +
+          (cat ? '<span class="log-badge">' + esc(cat) + '</span>' : '') +
+          '<div>' + esc(item.content) + '</div>' +
+          '</div>';
+      }).join("") +
+      '</details>';
+  }).join("");
+}
+
+async function toggle(id, btn) {
+  btn.classList.add("checked");
+  btn.innerHTML = "&#10003;";
+  const t = btn.closest(".task");
+  if (t) { t.classList.add("done"); const tt = t.querySelector(".task-text"); if (tt) tt.style.textDecoration = "line-through"; }
+  try { await fetch(FN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }); } catch (e) {}
+  setTimeout(loadAll, 600);
+}
+
+async function shopDone(id, btn) {
+  btn.classList.add("checked");
+  btn.innerHTML = "&#10003;";
+  const s = btn.closest(".shop-item");
+  if (s) { s.classList.add("done"); const st = s.querySelector(".shop-text"); if (st) st.style.textDecoration = "line-through"; }
+  try { await fetch(FN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }); } catch (e) {}
+  setTimeout(loadAll, 600);
+}
+
+loadAll();
+</script>
+</body>
+</html>
